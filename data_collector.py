@@ -15,6 +15,8 @@ import dlib
 import cv2
 import pyautogui as pg
 from win32api import GetSystemMetrics
+import csv
+import pickle
 
 def eye_aspect_ratio(eye):
 	# compute the euclidean distances between the two sets of
@@ -65,7 +67,7 @@ predictor = dlib.shape_predictor(args["shape_predictor"])
 print("[INFO] starting video stream thread...")
 #vs = FileVideoStream(args["video"]).start()
 #fileStream = True
-cam = cv2.VideoCapture('eye_movement_demo.mp4')
+cam = cv2.VideoCapture('eye_train.mp4')
 #vs = VideoStream(src=0).start()
 # vs = VideoStream(usePiCamera=True).start()
 # fileStream = False
@@ -75,9 +77,14 @@ earMin = 1
 (xmax, ymax) = (GetSystemMetrics(0), GetSystemMetrics(1))
 block_size = 1001
 con = 18
+
+row_list = [["leftEAR","xLStart","xLEnd","yLStart","yLEnd","xL","yL","wL","hL","xLPoint","yLPoint","xLEst","xLMi","xLM","yLEst","yLMi","yLM","rightEAR","xRStart","xREnd","yRStart","yREnd","xR","yR","wR","hR","xRPoint","yRPoint","xREst","xRMi","xRM","yREst","yRMi","yRM","xOut","yOut"]]
 # block_size = 201
 # con = 17
 # loop over frames from the video stream
+ctr = 0
+x_arr = []
+y_arr = []
 while(cam.isOpened()):
 	# if this is a file video stream, then we need to check if
 	# there any more frames left in the buffer to process
@@ -90,7 +97,7 @@ while(cam.isOpened()):
 	ret, frame = cam.read()
 	if(not(ret)):
 		break
-	frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+	# frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 	frame = imutils.resize(frame, width=450)
 	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -126,29 +133,29 @@ while(cam.isOpened()):
 		rows, cols, _ = leftBox.shape
 		
 		for cnt in contours:
-			(x, y, w, h) = cv2.boundingRect(cnt)
-			cv2.drawContours(leftBox, [cnt], -1, (0, 0, 255), 3)
-			cv2.rectangle(leftBox, (x, y), (x + w, y + h), (255, 0, 0), 2)
-			cv2.line(leftBox, (x + int(w/2), 0), (x + int(w/2), rows), (0, 255, 0), 2)
-			cv2.line(leftBox, (0, y + int(h/2)), (cols, y + int(h/2)), (0, 255, 0), 2)
-			(xLPoint,yLPoint) = (x + int(w/2), y + int(h/2)) 
-			cv2.circle(leftBox, (xLPoint, yLPoint), 5, (255, 0, 0), 2)
+			(xL, yL, wL, hL) = cv2.boundingRect(cnt)
+			# cv2.drawContours(leftBox, [cnt], -1, (0, 0, 255), 3)
+			# cv2.rectangle(leftBox, (xL, yL), (xL + wL, yL + hL), (255, 0, 0), 2)
+			# cv2.line(leftBox, (xL + int(wL/2), 0), (xL + int(wL/2), rows), (0, 255, 0), 2)
+			# cv2.line(leftBox, (0, yL + int(hL/2)), (cols, yL + int(hL/2)), (0, 255, 0), 2)
+			(xLPoint,yLPoint) = (xL + int(wL/2), yL + int(hL/2)) 
+			# cv2.circle(leftBox, (xLPoint, yLPoint), 5, (255, 0, 0), 2)
 			# (xmax, ymax) = pg.size()
-			xs = 13
-			xe = (xLEnd - xLStart) - 13
+			xs = 0
+			xe = (xLEnd - xLStart)
 			if xe <= xs:
 				xe = xs + 2
-			xEst = float(xLPoint - xs) / float(xe - xs)
-			xMi = int(xLPoint * xmax / (xLEnd - xLStart))
-			xM = int(xEst * xmax) if xEst < 1.0 else xmax - 10
+			xLEst = float(xLPoint - xs) / float(xe - xs)
+			xLMi = int(xLPoint * xmax / (xLEnd - xLStart))
+			xLM = int(xLEst * xmax) if xLEst < 1.0 else xmax - 10
 
-			yEst = 1 - float((leftEAR - 0.24) / 0.17) 
-			yMi = int(yLPoint * ymax / (yLEnd - yLStart))
-			yM = int(yEst * ymax) if yEst < 1.0 else ymax - 3
+			yLEst = 1 - float((leftEAR - 0.24) / 0.17) 
+			yLMi = int(yLPoint * ymax / (yLEnd - yLStart))
+			yLM = int(yLEst * ymax) if yLEst < 1.0 else ymax - 3
 
 			pg.FAILSAFE = False
-			xM = xM
-			yM = yM
+			# xM = xM
+			# yM = yM
 			# pg.moveTo(xM, yM)
 			# if leftEAR < earMin:
 			# 	earMin = leftEAR
@@ -173,29 +180,29 @@ while(cam.isOpened()):
 		rows, cols, _ = rightBox.shape
 		
 		for cnt in contours:
-			(x, y, w, h) = cv2.boundingRect(cnt)
-			cv2.drawContours(rightBox, [cnt], -1, (0, 0, 255), 3)
-			cv2.rectangle(rightBox, (x, y), (x + w, y + h), (255, 0, 0), 2)
-			cv2.line(rightBox, (x + int(w/2), 0), (x + int(w/2), rows), (0, 255, 0), 2)
-			cv2.line(rightBox, (0, y + int(h/2)), (cols, y + int(h/2)), (0, 255, 0), 2)
-			(xRPoint,yRPoint) = (x + int(w/2), y + int(h/2)) 
-			cv2.circle(rightBox, (xRPoint, yRPoint), 5, (255, 0, 0), 2)
+			(xR, yR, wR, hR) = cv2.boundingRect(cnt)
+			# cv2.drawContours(rightBox, [cnt], -1, (0, 0, 255), 3)
+			# cv2.rectangle(rightBox, (xR, yR), (xR + wR, yR + hR), (255, 0, 0), 2)
+			# cv2.line(rightBox, (xR + int(wR/2), 0), (xR + int(wR/2), rows), (0, 255, 0), 2)
+			# cv2.line(rightBox, (0, yR + int(hR/2)), (cols, yR + int(hR/2)), (0, 255, 0), 2)
+			(xRPoint,yRPoint) = (xR + int(wR/2), yR + int(hR/2)) 
+			# cv2.circle(rightBox, (xRPoint, yRPoint), 5, (255, 0, 0), 2)
 			# (xmax, ymax) = pg.size()
-			xs = 13
-			xe = (xREnd - xRStart) - 13
+			xs = 0
+			xe = (xREnd - xRStart)
 			if xe <= xs:
 				xe = xs + 2
-			xEst = float(xRPoint - xs) / float(xe - xs)
-			xMi = int(xRPoint * xmax / (xREnd - xRStart))
-			xM = int(xEst * xmax) if xEst < 1.0 else xmax - 10
+			xREst = float(xRPoint - xs) / float(xe - xs)
+			xRMi = int(xRPoint * xmax / (xREnd - xRStart))
+			xRM = int(xREst * xmax) if xREst < 1.0 else xmax - 10
 
-			yEst = 1 - float((rightEAR - 0.24) / 0.17) 
-			yMi = int(yRPoint * ymax / (yREnd - yRStart))
-			yM = int(yEst * ymax) if yEst < 1.0 else ymax - 3
+			yREst = 1 - float((rightEAR - 0.24) / 0.17) 
+			yRMi = int(yRPoint * ymax / (yREnd - yRStart))
+			yRM = int(yREst * ymax) if yREst < 1.0 else ymax - 3
 
 			pg.FAILSAFE = False
-			xM = xM
-			yM = yM
+			# xM = xM
+			# yM = yM
 			# pg.moveTo(xM, yM)
 			# if leftEAR < earMin:
 			# 	earMin = leftEAR
@@ -206,6 +213,32 @@ while(cam.isOpened()):
 			# print(rightEAR, yEst, ymax, yM)
 			break
 	    
+		xM = int((xLM + xRM)/2)
+		yM = int((yLM + yRM)/2)
+		# pg.moveTo(xLM, yLM)
+
+		modelX = pickle.load(open('trained_model_x.sav','rb'))
+		xOut = modelX.predict([[leftEAR,xLStart,xLEnd,yLStart,yLEnd,xL,yL,wL,hL,xLPoint,yLPoint,rightEAR,xRStart,xREnd,yRStart,yREnd,xR,yR,wR,hR,xRPoint,yRPoint]])[0]
+		modelY = pickle.load(open('trained_model_y.sav','rb'))
+		yOut = modelY.predict([[leftEAR,xLStart,xLEnd,yLStart,yLEnd,xL,yL,wL,hL,xLPoint,yLPoint,rightEAR,xRStart,xREnd,yRStart,yREnd,xR,yR,wR,hR,xRPoint,yRPoint]])[0]
+		
+		if(ctr < 10):
+			x_arr.append(xOut[0])
+			y_arr.append(yOut[0])
+			ctr += 1
+		else:
+			xIn = np.mean(x_arr)
+			yIn = np.mean(y_arr)
+			x_arr = []
+			y_arr = []
+			ctr = 0
+			pg.moveTo(int(xIn), int(yOut))
+
+		# row_list.append([leftEAR,xLStart,xLEnd,yLStart,yLEnd,xL,yL,wL,hL,xLPoint,yLPoint,xLEst,xLMi,xLM,yLEst,yLMi,yLM,rightEAR,xRStart,xREnd,yRStart,yREnd,xR,yR,wR,hR,xRPoint,yRPoint,xREst,xRMi,xRM,yREst,yRMi,yRM,xOut,yOut])
+		# with open('trainset.csv', 'w',) as file:
+		# 	writer = csv.writer(file)
+		# 	writer.writerows(row_list)
+
 		cv2.imshow("Left_eye", leftBox)
 		cv2.imshow("Right_eye", rightBox)
 		cv2.imshow("LBlack_White", Lblack)
